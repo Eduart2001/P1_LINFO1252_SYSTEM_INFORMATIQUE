@@ -1,10 +1,14 @@
+#include <errno.h>
+#include <stdlib.h>
 #include <stdio.h>
 #include <pthread.h>
-#include <stdlib.h>
-#include <errno.h>
 #include <string.h>
-#include "error.h"
 #define NTHREADS 4
+
+void error(int err, char *msg) { 
+    fprintf(stderr,"%s a retourné %d, message d’erreur : %s\n",msg,err,strerror(errno));
+    exit(EXIT_FAILURE);
+}
 
 void *neg (void * param) {
     int *l;

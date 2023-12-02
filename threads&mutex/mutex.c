@@ -1,12 +1,16 @@
+#include <errno.h>
+#include <stdlib.h>
 #include <stdio.h>
 #include <pthread.h>
-#include <stdlib.h>
-#include <errno.h>
-#include "error.h"
 #define NTHREADS 4
 
 long global=0;
 pthread_mutex_t mutex_global;
+
+void error(int err, char *msg) { 
+    fprintf(stderr,"%s a retourné %d, message d’erreur : %s\n",msg,err,strerror(errno));
+    exit(EXIT_FAILURE);
+}
 
 int increment(int i) {
     return i+1;

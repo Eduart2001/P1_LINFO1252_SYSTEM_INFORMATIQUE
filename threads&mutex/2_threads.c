@@ -1,9 +1,13 @@
-#include <pthread.h>
-#include <stdio.h>
-#include <stdlib.h>
 #include <string.h>
 #include <errno.h>
-#include "error.h"
+#include <stdlib.h>
+#include <stdio.h>
+#include <pthread.h>
+
+void error(int err, char *msg) { 
+    fprintf(stderr,"%s a retourné %d, message d’erreur : %s\n",msg,err,strerror(errno));
+    exit(EXIT_FAILURE);
+}
 
 int global=0;
 
