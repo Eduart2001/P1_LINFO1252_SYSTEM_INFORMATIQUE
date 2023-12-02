@@ -20,7 +20,7 @@ void* philosophe ( void* arg ) {
     int *id=(int *) arg;
     int left = *id;
     int right = (left + 1) % philosophes;
-    for(int i=0; i<100000; i++) {
+    for(int i=0; i<1000000; i++) {
         //printf("Philosophe [%d] pense\n",*id);
         if (left < right) {
             pthread_mutex_lock(&baguette[left]);
