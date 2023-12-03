@@ -8,7 +8,8 @@
 #include <errno.h>
 #include <string.h>
 #define BUFFER_SIZE 8
-#define TOTAL_ITEMS 8192 // 8192 elements produits/consommés
+// #define TOTAL_ITEMS 8192 // 8192 elements produits/consommés
+#define TOTAL_ITEMS 10
 
 void error(int err, char *msg) {
     fprintf(stderr,"%s a retourné %d, message d’erreur : %s\n",msg,err,strerror(errno));
@@ -25,13 +26,22 @@ int items_consumed = 0;
 void* producer(void *arg) {
     int item;
     while(items_produced < TOTAL_ITEMS) {
-        item=rand();
+        item=1;
         sem_wait(&empty); // attente d'une place libre
         pthread_mutex_lock(&mutex);
         // section critique
-        buffer[items_produced % BUFFER_SIZE] = item;
-        printf("Producer produces: %d\n", item);
-        items_produced++;
+        printf("items_produced: %d - ", items_produced);
+        printf("[");
+        for (size_t i = 0; i < BUFFER_SIZE-1; i++) printf("%d, ", buffer[i]);
+        printf("%d]\n", buffer[BUFFER_SIZE-1]);
+        for (int i = 0; i < BUFFER_SIZE && items_produced < TOTAL_ITEMS; i++) {
+            if (buffer[i] == 0){
+                buffer[i] = item;
+                items_produced++;
+                printf("Producer produces: %d\n", item);
+                break;
+            }
+        }
         pthread_mutex_unlock(&mutex);
         sem_post(&full); // une place remplie en plus
         for (int i=0; i<10000; i++);
@@ -41,14 +51,22 @@ void* producer(void *arg) {
 
  // Consommateur
 void* consumer(void *arg) {
-    int item;
     while(items_consumed < TOTAL_ITEMS) {
         sem_wait(&full); // attente d'une place remplie
         pthread_mutex_lock(&mutex);
         // section critique
-        item = buffer[items_consumed % BUFFER_SIZE];
-        printf("Consumer consumes: %d\n", item);
-        items_consumed++;
+        printf("items_consumed: %d - ", items_consumed);
+        printf("[");
+        for (size_t i = 0; i < BUFFER_SIZE-1; i++) printf("%d, ", buffer[i]);
+        printf("%d]\n", buffer[BUFFER_SIZE-1]);
+        for (int i = 0; i < BUFFER_SIZE && items_consumed < TOTAL_ITEMS; i++) {
+            if (buffer[i] == 1){
+                buffer[i] = 0;
+                items_consumed++;
+                printf("Consumer consumes at index: %d\n", i);
+                break;
+            }
+        }
         pthread_mutex_unlock(&mutex);
         sem_post(&empty); // une place libre en plus
         for (int i=0; i<10000; i++);
