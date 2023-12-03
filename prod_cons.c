@@ -7,9 +7,9 @@
 #include <time.h>
 #include <errno.h>
 #include <string.h>
-#define BUFFER_SIZE 8
-// #define TOTAL_ITEMS 8192 // 8192 elements produits/consommés
-#define TOTAL_ITEMS 10
+#define BUFFER_SIZE 7
+#define TOTAL_ITEMS 8192 // 8192 elements produits/consommés
+//#define TOTAL_ITEMS 10
 
 void error(int err, char *msg) {
     fprintf(stderr,"%s a retourné %d, message d’erreur : %s\n",msg,err,strerror(errno));
@@ -30,15 +30,15 @@ void* producer(void *arg) {
         sem_wait(&empty); // attente d'une place libre
         pthread_mutex_lock(&mutex);
         // section critique
-        printf("items_produced: %d - ", items_produced);
-        printf("[");
-        for (size_t i = 0; i < BUFFER_SIZE-1; i++) printf("%d, ", buffer[i]);
-        printf("%d]\n", buffer[BUFFER_SIZE-1]);
-        for (int i = 0; i < BUFFER_SIZE && items_produced < TOTAL_ITEMS; i++) {
+        //printf("items_produced: %d - ", items_produced);
+        //printf("[");
+        //for (size_t i = 0; i < BUFFER_SIZE-1; i++) printf("%d, ", buffer[i]);
+        //printf("%d]\n", buffer[BUFFER_SIZE-1]);
+        for (int i = 0;items_produced < TOTAL_ITEMS && i < BUFFER_SIZE; i++) {
             if (buffer[i] == 0){
                 buffer[i] = item;
                 items_produced++;
-                printf("Producer produces: %d\n", item);
+                //printf("Producer produces: %d\n", item);
                 break;
             }
         }
@@ -46,7 +46,8 @@ void* producer(void *arg) {
         sem_post(&full); // une place remplie en plus
         for (int i=0; i<10000; i++);
     }
-    return (NULL);
+    pthread_exit(NULL);
+
 }
 
  // Consommateur
@@ -55,26 +56,32 @@ void* consumer(void *arg) {
         sem_wait(&full); // attente d'une place remplie
         pthread_mutex_lock(&mutex);
         // section critique
-        printf("items_consumed: %d - ", items_consumed);
-        printf("[");
-        for (size_t i = 0; i < BUFFER_SIZE-1; i++) printf("%d, ", buffer[i]);
-        printf("%d]\n", buffer[BUFFER_SIZE-1]);
-        for (int i = 0; i < BUFFER_SIZE && items_consumed < TOTAL_ITEMS; i++) {
+        // printf("items_consumed: %d - ", items_consumed);
+        // printf("[");
+        //for (size_t i = 0; i < BUFFER_SIZE-1; i++) printf("%d, ", buffer[i]);
+        //printf("%d]\n", buffer[BUFFER_SIZE-1]);
+        for (int i = 0; items_consumed < TOTAL_ITEMS && i < BUFFER_SIZE; i++) {
             if (buffer[i] == 1){
                 buffer[i] = 0;
                 items_consumed++;
-                printf("Consumer consumes at index: %d\n", i);
+                //printf("Consumer consumes at index: %d\n", i);
                 break;
             }
         }
         pthread_mutex_unlock(&mutex);
         sem_post(&empty); // une place libre en plus
+
         for (int i=0; i<10000; i++);
+        //printf("\nConsumed : %d <  Total_items :%d \n", items_consumed ,TOTAL_ITEMS);
     }
-    return (NULL);
+    sem_post(&empty);
+    pthread_exit(NULL);
 }
 
 int main(int argc, char const *argv[]) {
+
+    for(int k=0; k<1000 ;k++){
+
     clock_t begin = clock();
     int err;
 
@@ -113,7 +120,7 @@ int main(int argc, char const *argv[]) {
         err=pthread_create(&(consumers[i]),NULL,&consumer,NULL);
         if(err!=0) error(err,"pthread_create_consumer");
     }
-
+    
     // join
     for(long i=0; i<producers_number; i++) {
         err=pthread_join(producers[i],NULL);
@@ -125,14 +132,14 @@ int main(int argc, char const *argv[]) {
         if(err!=0) error(err,"pthread_join_consumer");
     }
 
-    sem_destroy(&empty);
+    sem_destroy(&empty);  
     sem_destroy(&full);
     pthread_mutex_destroy(&mutex);
-
-    printf("produced: %d, consumed: %d\n", items_produced, items_consumed);
+    printf("try: %d, produced: %d, consumed: %d\n",k, items_produced, items_consumed);
     
     clock_t end = clock();
     double time_spent = (double)(end - begin) / CLOCKS_PER_SEC;
     printf("%f\n", time_spent);
+    }
     return (EXIT_SUCCESS);
 }
