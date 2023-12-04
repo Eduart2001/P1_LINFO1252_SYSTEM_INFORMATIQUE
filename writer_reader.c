@@ -19,8 +19,8 @@ sem_t rsem; // pour bloquer des readers
 int readcount=0;
 int writecount=0;
 
-int total_reads = 0;
-int total_writes = 0;
+// int total_reads = 0;
+// int total_writes = 0;
 
 void error(int err, char *msg) {
     fprintf(stderr,"%s a retourné %d, message d’erreur : %s\n",msg,err,strerror(errno));
@@ -29,10 +29,11 @@ void error(int err, char *msg) {
 
 /* Writer */
 void  *writer (void *arg){
-    for(int i =0;i<*((int*)arg);++i) {
+    //printf("writer cycles inside: %d\n", *(int *)arg);
+    for(int i=0; i<*((int*)arg); i++) {
         pthread_mutex_lock(&mutex_writecount);
-        total_writes++;
-        printf("total writes: %d\n", total_writes);
+        //total_writes++;
+        // printf("total writes: %d\n", total_writes);
         // section critique - writecount
         
         writecount++;
@@ -54,17 +55,18 @@ void  *writer (void *arg){
         }
         pthread_mutex_unlock(&mutex_writecount);
     }
-    pthread_exit(NULL);
+    //pthread_exit(NULL);
 }
 
 /* Reader */
 void *reader(void *arg){
-    for(int i =0;i<*((int*)arg);++i) {
+    //printf("reader cycles inside: %d\n", *(int *)arg);
+    for(int i=0; i<*((int*)arg); i++) {
         pthread_mutex_lock(&z);
         // exclusion mutuelle, un seul reader en attente sur rsem
         sem_wait(&rsem);
         pthread_mutex_lock(&mutex_readcount);
-        total_reads++;
+        //total_reads++;
         // printf("total reads: %d\n", total_reads);
         // exclusion mutuelle, readercount
         readcount++;
@@ -88,7 +90,7 @@ void *reader(void *arg){
         }
         pthread_mutex_unlock(&mutex_readcount);
     }
-    pthread_exit(NULL);
+    //pthread_exit(NULL);
 }
 
 int main(int argc, char const *argv[]) {
@@ -121,25 +123,33 @@ int main(int argc, char const *argv[]) {
     pthread_t reader_thread[reader_number];
     pthread_t writer_thread[writer_number];
 
+    int cycles_writer[writer_number];
+
     for (int i = 0; i < writer_number; i++) {
         if (i == writer_number-1) {
-            int cycles_last_writer = (WRITER_CYCLES/writer_number) + (WRITER_CYCLES%writer_number);
-            pthread_create(&writer_thread[i], NULL, &writer, (void *) &(cycles_last_writer));
+            cycles_writer[i] = (WRITER_CYCLES/writer_number) + (WRITER_CYCLES%writer_number);
+            //printf("cycles_writer outside: %d\n", cycles_writer);
+            pthread_create(&(writer_thread[i]), NULL, &writer, (void *) &(cycles_writer[i]));
         }
         else {
-            int cycles_per_writer = WRITER_CYCLES/writer_number;
-            pthread_create(&writer_thread[i], NULL, &writer, (void *) &(cycles_per_writer));
+            cycles_writer[i] = WRITER_CYCLES/writer_number;
+            //printf("cycles_writer outside: %d\n", cycles_writer);
+            pthread_create(&(writer_thread[i]), NULL, &writer, (void *) &(cycles_writer[i]));
         }
     }
 
+    int cycles_reader[reader_number];
+
     for (int i = 0; i < reader_number; i++) {
         if (i == reader_number-1){
-            int cycles_last_reader = (READER_CYCLES/reader_number) + (READER_CYCLES%reader_number);
-            pthread_create(&reader_thread[i], NULL, &reader, (void *) &(cycles_last_reader));
+            cycles_reader[i] = (READER_CYCLES/reader_number) + (READER_CYCLES%reader_number);
+            //printf("cycles_reader outside: %d\n", cycles_reader);
+            pthread_create(&(reader_thread[i]), NULL, &reader, (void *) &(cycles_reader[i]));
         }
         else {
-            int cycles_per_reader = READER_CYCLES/reader_number;
-            pthread_create(&reader_thread[i], NULL, &reader, (void *) &(cycles_per_reader));
+            cycles_reader[i] = READER_CYCLES/reader_number;
+            //printf("cycles_reader outside: %d\n", cycles_reader);
+            pthread_create(&(reader_thread[i]), NULL, &reader, (void *) &(cycles_reader[i]));
         }
     }
 
@@ -166,7 +176,7 @@ int main(int argc, char const *argv[]) {
     pthread_mutex_destroy(&z);
     sem_destroy(&wsem);
     sem_destroy(&rsem);
-    printf("total reads: %d, total writes: %d\n", total_reads, total_writes);
+    //printf("total reads: %d, total writes: %d\n", total_reads, total_writes);
     // printf("READER_CYCLES: %d, WRITER_CYCLES: %d\n", READER_CYCLES, WRITER_CYCLES);
     return (EXIT_SUCCESS);
 }
