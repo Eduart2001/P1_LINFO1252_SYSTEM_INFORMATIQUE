@@ -16,11 +16,27 @@ sem_t rsem; // pour bloquer des readers
 int readcount=0;
 int writecount=0;
 
+void write_database(){
+
+    for (int i = 0; i < 10000; i++) {
+        
+    }
+}
+
+void read_database(){
+
+    for (int i = 0; i < 10000; i++) {
+        
+    }
+}
+
 /* Writer */
 void  *writer (void *arg){
-    while(true)
+    int* n_writer = (int*) arg;
+    for(int i =0;i<READER_CYCLES/(*n_writer);++i)
     {
-        think_up_data();
+        printf("Writer #%d is preparing data\n", );
+        //think_up_data();
         pthread_mutex_lock(&mutex_writecount);
         // section critique - writecount
         
@@ -49,16 +65,17 @@ void  *writer (void *arg){
 
 /* Reader */
 void *reader(void *arg){
-
-    while(true)
+    int* n_reader = (int*) arg;
+    for(int i =0;i<READER_CYCLES/(*n_reader);++i)
     {
         pthread_mutex_lock(&z);
         // exclusion mutuelle, un seul reader en attente sur rsem
         sem_wait(&rsem);
         pthread_mutex_lock(&mutex_readcount);
         // exclusion mutuelle, readercount
-        readcount=readcount+1;
+        readcount++;
         if (readcount==1) {
+            printf("Reader #%d is the first reader, waiting on wsem\n", i);
             // arrivée du premier reader
             sem_wait(&wsem);
         }
@@ -67,17 +84,20 @@ void *reader(void *arg){
         sem_post(&rsem); // libération prochain reader/writer
         
         pthread_mutex_unlock(&z);
+        printf("Reader #%d is reading\n", i);
         read_database();
         
         pthread_mutex_lock(&mutex_readcount);
         // exclusion mutuelle, readcount
-        readcount=readcount-1;
+        readcount--;
         if(readcount==0) {
             // départ du dernier reader
+            printf("Reader #%d was the last reader\n", i);
             sem_post(&wsem);
         }
         pthread_mutex_unlock(&mutex_readcount);
-        use_data_read();
+        printf("Reader #%d is processing data read\n", i);
+        //use_data_read();
     }
 }
 
@@ -100,7 +120,7 @@ int main(int argc, char const *argv[])
     err = pthread_mutex_init(&mutex_writecount, NULL);
     if(err!=0) error(err,"pthread_mutex_init writecount");
 
-    err = pthread_mutex_init(&mutex_writecount, NULL);
+    err = pthread_mutex_init(&z, NULL);
     if(err!=0) error(err,"pthread_mutex_init only one reader");
 
     err = sem_init(&wsem, 0 , 1); // buffer vide
@@ -114,29 +134,59 @@ int main(int argc, char const *argv[])
 
     pthread_t reader_thread[reader_number];
     pthread_t writer_thread[writer_number];
+    pthread_t z;
 
-    int i;
-    for(i=0; i<reader_number; i++) {
-        pthread_create(&reader_thread[i], NULL, reader, NULL);
+
+    semaphore_init(&rsem, 1);
+    semaphore_init(&wsem, 1);
+
+
+    for (int i = 0; i < writer_number; ++i) {
+
+        pthread_create(&writer_thread[i], NULL, writer, (void *) writer_number);
     }
 
-    for(i=0; i<writer_number; i++) {
-        pthread_create(&writer_thread[i], NULL, writer, NULL);
+    for (int i = 0; i < reader_number; ++i) {
+
+        pthread_create(&reader_thread[i], NULL, reader, (void *) writer_number);
     }
 
-    for(i=0; i<reader_number; i++) {
-        pthread_join(reader_thread[i], NULL);
+    // writer: join and clean up
+    for (int i = 0; i < writer_number; ++i) {
+        int error = pthread_join(writer_thread[i], NULL);
+        if (error != 0) {
+            perror("Failed to join writer thread");
+            exit(EXIT_FAILURE);
+        }
     }
 
-    for(i=0; i<writer_number; i++) {
-        pthread_join(writer_thread[i], NULL);
+    // reader: join and clean up
+    for (int i = 0; i < reader_number; ++i) {
+        int error = pthread_join(reader_thread[i], NULL);
+        if (error != 0) {
+            perror("Failed to join reader thread");
+            exit(EXIT_FAILURE);
+        }
     }
 
-    pthread_mutex_destroy(&mutex_readcount);
-    pthread_mutex_destroy(&mutex_writecount);
-    pthread_mutex_destroy(&z);
-    sem_destroy(&wsem);
-    sem_destroy(&rsem);
 
-    return 0;
+    err = pthread_mutex_destroy(&z);
+    if (err != 0) {
+        perror("Failed to destroy reader writer mutex");
+        exit(EXIT_FAILURE);
+    }
+    err = pthread_mutex_destroy(&mutex_readcount);
+    if (err != 0) {
+        perror("Failed to destroy reader writer mutex");
+        exit(EXIT_FAILURE);
+    }
+    err = pthread_mutex_destroy(&mutex_writecount);
+    if (err != 0) {
+        perror("Failed to destroy reader writer mutex");
+        exit(EXIT_FAILURE);
+    }
+
+    semaphore_destroy(&z);
+    semaphore_destroy(&wsem);
+    semaphore_destroy(&rsem);
 }
