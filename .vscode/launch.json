@@ -8,8 +8,8 @@
       "args": [],
       "stopAtEntry": false,
       "externalConsole": false,
-      "cwd": "/mnt/c/Users/isaim/Documents/GitHub/P1_LINFO1252_SYSTEM_INFORMATIQUE",
-      "program": "/mnt/c/Users/isaim/Documents/GitHub/P1_LINFO1252_SYSTEM_INFORMATIQUE/build/Debug/outDebug",
+      "cwd": "/mnt/c/Users/isaim/Documents/P1_LINFO1252_SYSTEM_INFORMATIQUE",
+      "program": "/mnt/c/Users/isaim/Documents/P1_LINFO1252_SYSTEM_INFORMATIQUE/build/Debug/outDebug",
       "MIMode": "gdb",
       "miDebuggerPath": "gdb",
       "setupCommands": [

@@ -7,9 +7,8 @@
 #include <time.h>
 #include <errno.h>
 #include <string.h>
-#define BUFFER_SIZE 7
+#define BUFFER_SIZE 8
 #define TOTAL_ITEMS 8192 // 8192 elements produits/consommés
-//#define TOTAL_ITEMS 10
 
 void error(int err, char *msg) {
     fprintf(stderr,"%s a retourné %d, message d’erreur : %s\n",msg,err,strerror(errno));
@@ -47,7 +46,6 @@ void* producer(void *arg) {
         for (int i=0; i<10000; i++);
     }
     pthread_exit(NULL);
-
 }
 
  // Consommateur
@@ -79,9 +77,6 @@ void* consumer(void *arg) {
 }
 
 int main(int argc, char const *argv[]) {
-
-    for(int k=0; k<1000 ;k++){
-
     clock_t begin = clock();
     int err;
 
@@ -135,11 +130,9 @@ int main(int argc, char const *argv[]) {
     sem_destroy(&empty);  
     sem_destroy(&full);
     pthread_mutex_destroy(&mutex);
-    printf("try: %d, produced: %d, consumed: %d\n",k, items_produced, items_consumed);
     
     clock_t end = clock();
     double time_spent = (double)(end - begin) / CLOCKS_PER_SEC;
     printf("%f\n", time_spent);
-    }
     return (EXIT_SUCCESS);
 }

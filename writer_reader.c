@@ -3,6 +3,8 @@
 #include <stdbool.h>
 #include <pthread.h>
 #include <semaphore.h>
+#include <errno.h>
+#include <string.h>
 
 #define WRITER_CYCLES 640
 #define READER_CYCLES 2560
@@ -10,37 +12,30 @@
 pthread_mutex_t mutex_readcount; // protège readcount
 pthread_mutex_t mutex_writecount; // protège writecount
 pthread_mutex_t z; // un seul reader en attente
+
 sem_t wsem; // accès exclusif à la db
 sem_t rsem; // pour bloquer des readers
 
 int readcount=0;
 int writecount=0;
 
-void write_database(){
+int total_reads = 0;
+int total_writes = 0;
 
-    for (int i = 0; i < 10000; i++) {
-        
-    }
-}
-
-void read_database(){
-
-    for (int i = 0; i < 10000; i++) {
-        
-    }
+void error(int err, char *msg) {
+    fprintf(stderr,"%s a retourné %d, message d’erreur : %s\n",msg,err,strerror(errno));
+    exit(EXIT_FAILURE);
 }
 
 /* Writer */
 void  *writer (void *arg){
-    int* n_writer = (int*) arg;
-    for(int i =0;i<READER_CYCLES/(*n_writer);++i)
-    {
-        printf("Writer #%d is preparing data\n", );
-        //think_up_data();
+    for(int i =0;i<*((int*)arg);++i) {
         pthread_mutex_lock(&mutex_writecount);
+        total_writes++;
+        printf("total writes: %d\n", total_writes);
         // section critique - writecount
         
-        writecount=writecount+1;
+        writecount++;
         if(writecount==1) {
     	    // premier writer arrive
             sem_wait(&rsem);
@@ -48,34 +43,32 @@ void  *writer (void *arg){
         pthread_mutex_unlock(&mutex_writecount);
         sem_wait(&wsem);// section critique, un seul writer à la fois
         
-        write_database();
+        for (int i=0; i<10000; i++);
         sem_post(&wsem);
         pthread_mutex_lock(&mutex_writecount);
         // section critique - writecount
-        writecount=writecount-1;
+        writecount--;
         if(writecount==0) {
             // départ du dernier writer
             sem_post(&rsem);
         }
         pthread_mutex_unlock(&mutex_writecount);
     }
-
-
+    pthread_exit(NULL);
 }
 
 /* Reader */
 void *reader(void *arg){
-    int* n_reader = (int*) arg;
-    for(int i =0;i<READER_CYCLES/(*n_reader);++i)
-    {
+    for(int i =0;i<*((int*)arg);++i) {
         pthread_mutex_lock(&z);
         // exclusion mutuelle, un seul reader en attente sur rsem
         sem_wait(&rsem);
         pthread_mutex_lock(&mutex_readcount);
+        total_reads++;
+        // printf("total reads: %d\n", total_reads);
         // exclusion mutuelle, readercount
         readcount++;
         if (readcount==1) {
-            printf("Reader #%d is the first reader, waiting on wsem\n", i);
             // arrivée du premier reader
             sem_wait(&wsem);
         }
@@ -84,33 +77,29 @@ void *reader(void *arg){
         sem_post(&rsem); // libération prochain reader/writer
         
         pthread_mutex_unlock(&z);
-        printf("Reader #%d is reading\n", i);
-        read_database();
+        for (int i=0; i<10000; i++);
         
         pthread_mutex_lock(&mutex_readcount);
         // exclusion mutuelle, readcount
         readcount--;
         if(readcount==0) {
             // départ du dernier reader
-            printf("Reader #%d was the last reader\n", i);
             sem_post(&wsem);
         }
         pthread_mutex_unlock(&mutex_readcount);
-        printf("Reader #%d is processing data read\n", i);
-        //use_data_read();
     }
+    pthread_exit(NULL);
 }
 
-int main(int argc, char const *argv[])
-{
+int main(int argc, char const *argv[]) {
     int reader_number, writer_number;
 
     for (int i=0; i<argc-2; i++){
-        if (strcmp(argv[i+1], "-R") == 0) reader_number = atol(argv[i+2]);
+        if (strcmp(argv[i+1], "-R") == 0) reader_number = atoi(argv[i+2]);
     }
 
     for (int i=0; i<argc-2; i++){
-        if (strcmp(argv[i+1], "-W") == 0) writer_number = atol(argv[i+2]);
+        if (strcmp(argv[i+1], "-W") == 0) writer_number = atoi(argv[i+2]);
     }
     int err;
 
@@ -129,26 +118,29 @@ int main(int argc, char const *argv[])
     err = sem_init(&rsem, 0 , 1); // buffer vide
     if(err!=0) error(err,"sem_init_full rsem");
 
-
-
-
     pthread_t reader_thread[reader_number];
     pthread_t writer_thread[writer_number];
-    pthread_t z;
 
-
-    semaphore_init(&rsem, 1);
-    semaphore_init(&wsem, 1);
-
-
-    for (int i = 0; i < writer_number; ++i) {
-
-        pthread_create(&writer_thread[i], NULL, writer, (void *) writer_number);
+    for (int i = 0; i < writer_number; i++) {
+        if (i == writer_number-1) {
+            int cycles_last_writer = (WRITER_CYCLES/writer_number) + (WRITER_CYCLES%writer_number);
+            pthread_create(&writer_thread[i], NULL, &writer, (void *) &(cycles_last_writer));
+        }
+        else {
+            int cycles_per_writer = WRITER_CYCLES/writer_number;
+            pthread_create(&writer_thread[i], NULL, &writer, (void *) &(cycles_per_writer));
+        }
     }
 
-    for (int i = 0; i < reader_number; ++i) {
-
-        pthread_create(&reader_thread[i], NULL, reader, (void *) writer_number);
+    for (int i = 0; i < reader_number; i++) {
+        if (i == reader_number-1){
+            int cycles_last_reader = (READER_CYCLES/reader_number) + (READER_CYCLES%reader_number);
+            pthread_create(&reader_thread[i], NULL, &reader, (void *) &(cycles_last_reader));
+        }
+        else {
+            int cycles_per_reader = READER_CYCLES/reader_number;
+            pthread_create(&reader_thread[i], NULL, &reader, (void *) &(cycles_per_reader));
+        }
     }
 
     // writer: join and clean up
@@ -169,24 +161,12 @@ int main(int argc, char const *argv[])
         }
     }
 
-
-    err = pthread_mutex_destroy(&z);
-    if (err != 0) {
-        perror("Failed to destroy reader writer mutex");
-        exit(EXIT_FAILURE);
-    }
-    err = pthread_mutex_destroy(&mutex_readcount);
-    if (err != 0) {
-        perror("Failed to destroy reader writer mutex");
-        exit(EXIT_FAILURE);
-    }
-    err = pthread_mutex_destroy(&mutex_writecount);
-    if (err != 0) {
-        perror("Failed to destroy reader writer mutex");
-        exit(EXIT_FAILURE);
-    }
-
-    semaphore_destroy(&z);
-    semaphore_destroy(&wsem);
-    semaphore_destroy(&rsem);
+    pthread_mutex_destroy(&mutex_readcount);
+    pthread_mutex_destroy(&mutex_writecount);
+    pthread_mutex_destroy(&z);
+    sem_destroy(&wsem);
+    sem_destroy(&rsem);
+    printf("total reads: %d, total writes: %d\n", total_reads, total_writes);
+    // printf("READER_CYCLES: %d, WRITER_CYCLES: %d\n", READER_CYCLES, WRITER_CYCLES);
+    return (EXIT_SUCCESS);
 }
