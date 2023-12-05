@@ -11,17 +11,17 @@ for ((thread = 1; thread <= 64; thread *= 2)); do
 done
 
 
-# echo "cons_number ,prod_number ,threads_number,try_number i ,time" &> data/pthrerad_prod_cons.csv
+echo "cons_number ,prod_number ,threads_number,try_number i ,time" &> data/pthrerad_prod_cons.csv
 
-# for ((thread = 1; thread <= 64; thread *= 2)); do
-#     if [ "$thread" != 1 ]; then
-#       c=$((thread/2))
-#       p=$((thread/2))
-#       for i in {1..5}; do
-#             /usr/bin/time -f "$c,$p,$thread,$i,%e" ./lib/prod_cons -P $p  -C $c >>data/pthrerad_prod_cons.csv 2>&1 
-#       done
-#     fi
-# done
+for ((thread = 1; thread <= 64; thread *= 2)); do
+    if [ "$thread" != 1 ]; then
+      c=$((thread/2))
+      p=$((thread/2))
+      for i in {1..5}; do
+            /usr/bin/time -f "$c,$p,$thread,$i,%e" ./lib/prod_cons -P $p  -C $c >>data/pthrerad_prod_cons.csv 2>&1 
+      done
+    fi
+done
 
 echo "reader_number ,writer_number ,threads_number,try_number i ,time" &> data/pthread_writer_reader.csv
 
@@ -43,8 +43,8 @@ done
 echo Philosophes :
 cat data/pthread_philosophes.csv
 
-# echo Producer Consumer :
-# cat data/pthrerad_prod_cons.csv
+echo Producer Consumer :
+cat data/pthrerad_prod_cons.csv
 
 echo Writer reader :
 cat data/pthread_writer_reader.csv

@@ -45,6 +45,7 @@ void* producer(void *arg) {
         sem_post(&full); // une place remplie en plus
         for (int i=0; i<10000; i++);
     }
+    sem_post(&full);
     pthread_exit(NULL);
 }
 
@@ -72,7 +73,9 @@ void* consumer(void *arg) {
         for (int i=0; i<10000; i++);
         //printf("\nConsumed : %d <  Total_items :%d \n", items_consumed ,TOTAL_ITEMS);
     }
+    
     sem_post(&empty);
+
     pthread_exit(NULL);
 }
 
