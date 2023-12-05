@@ -36,7 +36,7 @@ void* philosophe ( void* arg ) {
         // printf("Philosophe [%d] a libéré baguette gauche [%d]\n",*id,left);
         pthread_mutex_unlock(&baguette[right]);
         // printf("Philosophe [%d] a libéré baguette droite [%d]\n",*id,right);
-        }
+    }
     return (NULL);
 }
 
@@ -46,10 +46,19 @@ int main(int argc, char const *argv[]) {
     for (int i=0; i<argc-2; i++){
         if (strcmp(argv[i+1], "-N") == 0) philosophes = atol(argv[i+2]);
     }
+
+
+
     if (philosophes <= 0) error(err,"thread_numer");
+
+
     int arg[philosophes];
+
+
     phil = (pthread_t *)malloc(philosophes*sizeof(pthread_t));
+    if(philosophes==1) philosophes++;
     baguette = (pthread_mutex_t *)malloc(philosophes*sizeof(pthread_mutex_t));
+    
     for(long i=0; i<philosophes; i++) {
         arg[i]=i;
         err = pthread_mutex_init(&(baguette[i]), NULL);
@@ -57,14 +66,16 @@ int main(int argc, char const *argv[]) {
         err=pthread_create(&(phil[i]),NULL,&philosophe,(void *) &(arg[i]));
         if(err!=0) error(err,"pthread_create");
     }
+
     for(int i=0;i<philosophes;i++) {
         err=pthread_join(phil[i],NULL);
         if(err!=0) error(err,"pthread_join");
     }
+
     free(phil);
     free(baguette);
     clock_t end = clock();
     double time_spent = (double)(end - begin) / CLOCKS_PER_SEC;
-    printf("%f\n", time_spent);
+    //printf("%f\n", time_spent);
     return (EXIT_SUCCESS);
 }
