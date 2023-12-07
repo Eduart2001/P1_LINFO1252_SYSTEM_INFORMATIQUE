@@ -20,9 +20,19 @@ int my_mutex_destroy(my_mutex *mutex) {
     return 0;
 }
 
-int my_mutex_lock(my_mutex *mutex) {
+int my_mutex_lock(my_mutex *mutex) { //test-and-set
     int temp;
     do {
+        temp = 1;
+        asm volatile("xchgl %0, %1\n": "+r"(temp): "m"(*(mutex->lock)): "memory"); // On boucle sur la variable temp qui prend la valeur du registre
+    } while (temp != 0);
+    return 0;
+}
+
+void test_and_test_and_set_lock(my_mutex *mutex) { //test-and test-and-set
+    int temp;
+    do {
+        while (*(mutex->lock) == 1) {}
         temp = 1;
         asm volatile("xchgl %0, %1\n": "+r"(temp): "m"(*(mutex->lock)): "memory"); // On boucle sur la variable temp qui prend la valeur du registre
     } while (temp != 0);
