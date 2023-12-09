@@ -1,124 +1,119 @@
-#include <stdio.h>
-#include <stdlib.h>
+#include "../headers/error.h"
+
 #include <stdbool.h>
 #include <pthread.h>
 #include <semaphore.h>
-#include <errno.h>
-#include <string.h>
+#include <time.h>
 
 #define WRITER_CYCLES 640
 #define READER_CYCLES 2560
-/* Initialisation */
-pthread_mutex_t mutex_readcount; // protège readcount
-pthread_mutex_t mutex_writecount; // protège writecount
-pthread_mutex_t z; // un seul reader en attente
+/* Initialization */
+pthread_mutex_t mutex_readcount; // protects readcount
+pthread_mutex_t mutex_writecount; // protects writecount
+pthread_mutex_t z; // Only one reader waiting
 
-sem_t wsem; // accès exclusif à la db
-sem_t rsem; // pour bloquer des readers
+sem_t wsem; // exclusive access to the db
+sem_t rsem; // To block the readers
 
 int readcount=0;
 int writecount=0;
 
-// int total_reads = 0;
-// int total_writes = 0;
+int verbose = false;
 
-void error(int err, char *msg) {
-    fprintf(stderr,"%s a retourné %d, message d’erreur : %s\n",msg,err,strerror(errno));
-    exit(EXIT_FAILURE);
-}
+// for testing purpose
+int total_reads = 0;
+int total_writes = 0;
 
-/* Writer */
 void  *writer (void *arg){
-    //printf("writer cycles inside: %d\n", *(int *)arg);
+    if (verbose) printf("writer cycles inside: %d\n", *(int *)arg); // for testing purpose
     for(int i=0; i<*((int*)arg); i++) {
-        pthread_mutex_lock(&mutex_writecount);
-        //total_writes++;
-        // printf("total writes: %d\n", total_writes);
-        // section critique - writecount
+        if(pthread_mutex_lock(&mutex_writecount)) error("initial writer mutex_lock failed");
         
-        writecount++;
-        if(writecount==1) {
-    	    // premier writer arrive
-            sem_wait(&rsem);
+        // for testing purpose
+        if(verbose) {
+            total_writes++;
+            printf("total writes: %d\n", total_writes);
         }
-        pthread_mutex_unlock(&mutex_writecount);
-        sem_wait(&wsem);// section critique, un seul writer à la fois
         
-        for (int i=0; i<10000; i++);
-        sem_post(&wsem);
-        pthread_mutex_lock(&mutex_writecount);
+        // critical section - writecount
+        writecount++;
+        if(writecount==1) if(sem_wait(&rsem)) error("first writer sem_wait failed"); // First writer arriving
+        if(pthread_mutex_unlock(&mutex_writecount)) error("writer first mutex_unlock failed");
+        if(sem_wait(&wsem)) error("writer sem_wait failed"); // critical section, only one writer at a time
+        
+        for (int i=0; i<10000; i++); // hard work
+        if(sem_post(&wsem)) error("writer sem_post failed");
+        if(pthread_mutex_lock(&mutex_writecount)) error("writer second mutex_lock failed");
         // section critique - writecount
         writecount--;
         if(writecount==0) {
-            // départ du dernier writer
-            sem_post(&rsem);
+            if(sem_post(&rsem)) error("writer last sem_post failed"); // departure of the last writer
         }
-        pthread_mutex_unlock(&mutex_writecount);
+        if(pthread_mutex_unlock(&mutex_writecount)) error("writer last mutex_unlock failed");
     }
-    //pthread_exit(NULL);
+    pthread_exit(NULL);
 }
 
-/* Reader */
 void *reader(void *arg){
-    //printf("reader cycles inside: %d\n", *(int *)arg);
+    if(verbose) printf("reader cycles inside: %d\n", *(int *)arg); // for testing purpose
     for(int i=0; i<*((int*)arg); i++) {
-        pthread_mutex_lock(&z);
-        // exclusion mutuelle, un seul reader en attente sur rsem
-        sem_wait(&rsem);
-        pthread_mutex_lock(&mutex_readcount);
-        //total_reads++;
-        // printf("total reads: %d\n", total_reads);
-        // exclusion mutuelle, readercount
+        if(pthread_mutex_lock(&z)) error("initial reader z mutex_lock failed");
+        // mutual exclusion, only one reader waiting on rsem
+        if(sem_wait(&rsem)) error("reader sem_wait failed");
+        if(pthread_mutex_lock(&mutex_readcount)) error("reader first readcount mutex_lock failed");
+        
+        // for testing purpose
+        if(verbose) {
+            total_reads++;
+            printf("total reads: %d\n", total_reads);
+        }
+        
+        // mutual exclusion, readercount
         readcount++;
         if (readcount==1) {
-            // arrivée du premier reader
-            sem_wait(&wsem);
+            if(sem_wait(&wsem)) error("reader sem_wait failed"); // First reader arriving
         }
 
-        pthread_mutex_unlock(&mutex_readcount);
-        sem_post(&rsem); // libération prochain reader/writer
+        if(pthread_mutex_unlock(&mutex_readcount)) error("reader mutex_unlock failed");
+        if(sem_post(&rsem)) error("reader sem_post faield"); // release next reader/writer
         
-        pthread_mutex_unlock(&z);
-        for (int i=0; i<10000; i++);
+        if(pthread_mutex_unlock(&z)) error("reader z mutex_unlock failed");
+        for (int i=0; i<10000; i++); // hard work
         
-        pthread_mutex_lock(&mutex_readcount);
-        // exclusion mutuelle, readcount
+        if(pthread_mutex_lock(&mutex_readcount)) error("reader second readcount mutex_lock failed");
+        // mutual exclusion, readcount
         readcount--;
         if(readcount==0) {
-            // départ du dernier reader
-            sem_post(&wsem);
+            if(sem_post(&wsem)) error("reader last sem_post failed"); // departure of the last reader
         }
-        pthread_mutex_unlock(&mutex_readcount);
+        if(pthread_mutex_unlock(&mutex_readcount)) error("reader last mutex_unlock failed");
     }
-    //pthread_exit(NULL);
+    pthread_exit(NULL);
 }
 
 int main(int argc, char const *argv[]) {
-    int reader_number, writer_number;
+    clock_t begin = clock();
+    int reader_number = 0;
+    int writer_number = 0;
 
     for (int i=0; i<argc-2; i++){
         if (strcmp(argv[i+1], "-R") == 0) reader_number = atoi(argv[i+2]);
+        else if (strcmp(argv[i+1], "-W") == 0) writer_number = atoi(argv[i+2]);
+        else if (strcmp(argv[i+1], "-v") == 0) verbose = true;
     }
+    if (strcmp(argv[argc-1], "-v") == 0) verbose = true;
 
-    for (int i=0; i<argc-2; i++){
-        if (strcmp(argv[i+1], "-W") == 0) writer_number = atoi(argv[i+2]);
-    }
-    int err;
+    if (reader_number <= 0 || writer_number <= 0) error("Please give a valid writer or consumer number of threads");
 
-    err = pthread_mutex_init(&mutex_readcount, NULL);
-    if(err!=0) error(err,"pthread_mutex_init readcount");
+    if(pthread_mutex_init(&mutex_readcount, NULL)) error("pthread_mutex_init readcount");
 
-    err = pthread_mutex_init(&mutex_writecount, NULL);
-    if(err!=0) error(err,"pthread_mutex_init writecount");
+    if(pthread_mutex_init(&mutex_writecount, NULL)) error("pthread_mutex_init writecount");
 
-    err = pthread_mutex_init(&z, NULL);
-    if(err!=0) error(err,"pthread_mutex_init only one reader");
+    if(pthread_mutex_init(&z, NULL)) error("pthread_mutex_init only one reader (z)");
 
-    err = sem_init(&wsem, 0 , 1); // buffer vide
-    if(err!=0) error(err,"sem_init_empty wsem");
+    if(sem_init(&wsem, 0 , 1)) error("sem_init_empty wsem"); // empty buffer
 
-    err = sem_init(&rsem, 0 , 1); // buffer vide
-    if(err!=0) error(err,"sem_init_full rsem");
+    if (sem_init(&rsem, 0 , 1)) error("sem_init_full rsem"); // empty buffer
 
     pthread_t reader_thread[reader_number];
     pthread_t writer_thread[writer_number];
@@ -128,13 +123,13 @@ int main(int argc, char const *argv[]) {
     for (int i = 0; i < writer_number; i++) {
         if (i == writer_number-1) {
             cycles_writer[i] = (WRITER_CYCLES/writer_number) + (WRITER_CYCLES%writer_number);
-            //printf("cycles_writer outside: %d\n", cycles_writer);
-            pthread_create(&(writer_thread[i]), NULL, &writer, (void *) &(cycles_writer[i]));
+            //printf("cycles_writer outside: %d\n", cycles_writer); // for testing purpose
+            if (pthread_create(&(writer_thread[i]), NULL, &writer, (void *) &(cycles_writer[i]))) error("writer pthread_create failed");
         }
         else {
             cycles_writer[i] = WRITER_CYCLES/writer_number;
-            //printf("cycles_writer outside: %d\n", cycles_writer);
-            pthread_create(&(writer_thread[i]), NULL, &writer, (void *) &(cycles_writer[i]));
+            //printf("cycles_writer outside: %d\n", cycles_writer); // for testing purpose
+            if(pthread_create(&(writer_thread[i]), NULL, &writer, (void *) &(cycles_writer[i]))) error("last writer pthread_create failed");
         }
     }
 
@@ -143,32 +138,20 @@ int main(int argc, char const *argv[]) {
     for (int i = 0; i < reader_number; i++) {
         if (i == reader_number-1){
             cycles_reader[i] = (READER_CYCLES/reader_number) + (READER_CYCLES%reader_number);
-            //printf("cycles_reader outside: %d\n", cycles_reader);
-            pthread_create(&(reader_thread[i]), NULL, &reader, (void *) &(cycles_reader[i]));
+            //printf("cycles_reader outside: %d\n", cycles_reader); // for testing purpose
+            if(pthread_create(&(reader_thread[i]), NULL, &reader, (void *) &(cycles_reader[i]))) error("reader pthread_create failed");
         }
         else {
             cycles_reader[i] = READER_CYCLES/reader_number;
-            //printf("cycles_reader outside: %d\n", cycles_reader);
-            pthread_create(&(reader_thread[i]), NULL, &reader, (void *) &(cycles_reader[i]));
+            //printf("cycles_reader outside: %d\n", cycles_reader); // for testing purpose
+            if(pthread_create(&(reader_thread[i]), NULL, &reader, (void *) &(cycles_reader[i]))) error("last reader pthread_create failed");
         }
     }
 
-    // writer: join and clean up
+    // writer and reader: join and clean up
     for (int i = 0; i < writer_number; ++i) {
-        int error = pthread_join(writer_thread[i], NULL);
-        if (error != 0) {
-            perror("Failed to join writer thread");
-            exit(EXIT_FAILURE);
-        }
-    }
-
-    // reader: join and clean up
-    for (int i = 0; i < reader_number; ++i) {
-        int error = pthread_join(reader_thread[i], NULL);
-        if (error != 0) {
-            perror("Failed to join reader thread");
-            exit(EXIT_FAILURE);
-        }
+        if(pthread_join(writer_thread[i], NULL)) error("Failed to join writer thread");
+        if(pthread_join(reader_thread[i], NULL)) error("Failed to join reader thread");
     }
 
     pthread_mutex_destroy(&mutex_readcount);
@@ -176,7 +159,14 @@ int main(int argc, char const *argv[]) {
     pthread_mutex_destroy(&z);
     sem_destroy(&wsem);
     sem_destroy(&rsem);
-    //printf("total reads: %d, total writes: %d\n", total_reads, total_writes);
-    // printf("READER_CYCLES: %d, WRITER_CYCLES: %d\n", READER_CYCLES, WRITER_CYCLES);
+    if (verbose) {
+        printf("total reads: %d, total writes: %d\n", total_reads, total_writes);
+        printf("READER_CYCLES: %d, WRITER_CYCLES: %d\n", READER_CYCLES, WRITER_CYCLES);
+    }
+
+    clock_t end = clock();
+    double time_spent = (double)(end - begin) / CLOCKS_PER_SEC;
+    printf("%f\n", time_spent);
+    
     return (EXIT_SUCCESS);
 }

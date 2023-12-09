@@ -1,46 +1,19 @@
 #include "../headers/test-and-set.h"
 
-int my_mutex_init(my_mutex *mutex) {
-    if (mutex == NULL) {
-        printf("Please give a pointer to a valid mutex structure");
-        return 1;
-    }
-    mutex->lock = (int *)malloc(sizeof(int));
-    if (mutex->lock == NULL) {
-        printf("Error mutex lock variable malloc");
-        return 2;
-    }
-    asm volatile("movl $0, %0\n" :"=m"(*(mutex->lock)));  // ; initialise lock à 0
-    return 0;
-}
-
-int my_mutex_destroy(my_mutex *mutex) {
-    free((void *)mutex->lock);
-    free(mutex);
-    return 0;
-}
-
-int my_mutex_lock(my_mutex *mutex) { //test-and-set
+int test_and_test_and_set_lock(my_mutex *mutex) { //test-and test-and-set
     int temp;
     do {
+        while (*(mutex->lock) == 1) {}
         temp = 1;
         asm volatile("xchgl %0, %1\n": "+r"(temp): "m"(*(mutex->lock)): "memory"); // On boucle sur la variable temp qui prend la valeur du registre
     } while (temp != 0);
     return 0;
 }
 
-int my_mutex_unlock(my_mutex *mutex) {
-    asm volatile("movl $0, %%eax\n"
-                 "xchg %%eax, %0\n": "+r"(*(mutex->lock)): "m"(*(mutex->lock)): "memory");
-    return 0;
-}
-
-my_mutex *test_mutex;
-
 void *thread_func(void *arg){
     my_threads_args argument = *((my_threads_args *) arg);
     for (int i = 0; i < argument.n_cycles; i++) {
-        my_mutex_lock(argument.mutex);
+        test_and_test_and_set_lock(argument.mutex);
         //section critique
         for (int j=0; j<10000; j++);
         my_mutex_unlock(argument.mutex);
@@ -75,8 +48,6 @@ void test(int n_threads) {
 
     my_mutex_destroy(test_mutex);
 }
-
-// *Uncomment to test*
 
 int main(int argc, char const *argv[]) {
     clock_t begin = clock();

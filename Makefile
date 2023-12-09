@@ -13,6 +13,11 @@ prod_cons:
 writer_reader:
 	gcc src/writer_reader.c -o lib/writer_reader -lpthread
 
+# gcc -Iheaders -Wall -Werror -g -o error.o -c error.c
+# gcc -Iheaders error.o -Wall -Werror -g -o philosophes philosophes.c -lpthread
+# gcc -Iheaders error.o -Wall -Werror -g -o prod_cons prod_cons.c -lpthread
+# gcc -Iheaders error.o -Wall -Werror -g -o writer_reader writer_reader.c -lpthread
+
 
 clean:
 	rm -f data/*.csv

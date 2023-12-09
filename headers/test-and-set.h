@@ -4,11 +4,11 @@
 #include <time.h>
 #include <string.h>
 
-typedef struct mutex{
+typedef struct my_mutex{
     volatile int *lock;
 } my_mutex;
 
-typedef struct threads_args {
+typedef struct my_threads_args {
     my_mutex *mutex;
     int n_cycles;
 } my_threads_args;
