@@ -45,7 +45,7 @@ int main(int argc, char const *argv[]) {
     if (strcmp(argv[argc-1], "-v") == 0) verbose = true;
 
     if (philosophes <= 1) {
-        printf("Please give a thread number bigger than 1\n");
+        printf("Please provide a thread number bigger than 1\n");
         return (EXIT_FAILURE);
     }
 

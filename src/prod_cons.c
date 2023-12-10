@@ -93,7 +93,7 @@ int main(int argc, char const *argv[]) {
     }
     if (strcmp(argv[argc-1], "-v") == 0) verbose = true;
 
-    if (consumers_number <= 0 || producers_number <= 0) error("Please give a valid consumer or producer number of threads");
+    if (consumers_number <= 0 || producers_number <= 0) error("Please provide a valid consumer or producer number of threads");
 
     pthread_t producers[producers_number];
     pthread_t consumers[consumers_number];

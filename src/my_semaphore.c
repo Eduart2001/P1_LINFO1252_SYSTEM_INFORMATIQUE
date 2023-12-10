@@ -27,7 +27,7 @@ pthread_t dequeue(my_semaphore *s) {
     return thread_id;
 }
 
-int my_sem_init(my_semaphore *s, unsigned int value) {
+void my_sem_init(my_semaphore *s, unsigned int value) {
     s->val = value;
     s->front = NULL;
     s->rear = NULL;
@@ -37,7 +37,7 @@ int my_sem_init(my_semaphore *s, unsigned int value) {
     return 0;
 }
 
-int my_sem_destroy(my_semaphore *s) {
+void my_sem_destroy(my_semaphore *s) {
     my_mutex_destroy(s->mutex);
     while (s->front != NULL) {
         queue_node* temp = s->front;
@@ -48,26 +48,13 @@ int my_sem_destroy(my_semaphore *s) {
     return 0;
 }
 
-int my_sem_wait(my_semaphore *s) {
+void my_sem_wait(my_semaphore *s) {
     //test_and_test_and_set_lock(s->mutex);
     while (s->val <= 0) {}
     s->val--;
     my_mutex_unlock(s->mutex);
 }
 
-int my_sem_post(my_semaphore *s) {
+void my_sem_post(my_semaphore *s) {
     s->val++;
-}
-
-void thread_func() {
-    
-}
-
-void test_sem() {
-
-}
-
-int main(int argc, char const *argv[]) {
-    
-    return 0;
 }

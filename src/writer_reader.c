@@ -103,7 +103,7 @@ int main(int argc, char const *argv[]) {
     }
     if (strcmp(argv[argc-1], "-v") == 0) verbose = true;
 
-    if (reader_number <= 0 || writer_number <= 0) error("Please give a valid writer or consumer number of threads");
+    if (reader_number <= 0 || writer_number <= 0) error("Please provide a valid writer or consumer number of threads");
 
     if(pthread_mutex_init(&mutex_readcount, NULL)) error("pthread_mutex_init readcount");
 
