@@ -2,7 +2,7 @@
 #include "../headers/my_mutex.h"
 
 #include <stdbool.h>
-#include <time.h>
+// #include <time.h>
 #include <pthread.h>
 #include <unistd.h>
 
@@ -58,7 +58,7 @@ void* philosophe ( void* arg ) {
 }
 
 int main(int argc, char const *argv[]) {
-    clock_t begin = clock();
+    // clock_t begin = clock();
     for (int i=0; i<argc-2; i++){
         if (strcmp(argv[i+1], "-N") == 0) philosophes = atol(argv[i+2]);
         else if (strcmp(argv[i+1], "-m") == 0) use_my_own = true;
@@ -107,9 +107,9 @@ int main(int argc, char const *argv[]) {
         else if(pthread_mutex_destroy(&baguette[i])) error("mutex destroy");
     }
 
-    clock_t end = clock();
-    double time_spent = (double)(end - begin) / CLOCKS_PER_SEC;
-    printf("%f\n", time_spent);
+    // clock_t end = clock();
+    // double time_spent = (double)(end - begin) / CLOCKS_PER_SEC;
+    // printf("%f\n", time_spent);
 
     return (EXIT_SUCCESS);
 }

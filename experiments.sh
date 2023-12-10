@@ -1,50 +1,90 @@
 #!/bin/bash
 
+make
 
-echo "philosophs_number ,threads_number,try_number i ,time" &> data/pthread_philosophes.csv
-for ((thread = 1; thread <= 64; thread *= 2)); do
-    make philosophes    
-    for i in {1..5}; do
-        /usr/bin/time -f "$thread,$thread,$i,%e" ./lib/philosophes -N $thread >> data/pthread_philosophes.csv 2>&1
+echo "2,4,8,16,32,64" &> data/pthread_philosophes.csv
+for i in {1..5}; do
+    TIMES=""
+    for ((thread = 2; thread <= 64; thread *= 2)); do
+        TEXT=$(/usr/bin/time -f "%e" ./lib/philosophes -N $thread 2>&1)
+        TIME=$(echo "$TEXT" | tail -n 1)
+        [ -z "$TIMES" ] && TIMES="$TIME" || TIMES="$TIMES,$TIME"
     done
-    make clean -f ./lib/philosophes
+    echo "$TIMES" >> data/pthread_philosophes.csv
+done
+
+# my_philosophes
+echo "2,4,8,16,32,64" &> data/my_philosophes.csv
+for i in {1..5}; do
+    TIMES=""
+    for ((thread = 2; thread <= 64; thread *= 2)); do
+        TEXT=$(/usr/bin/time -f "%e" ./lib/philosophes -N $thread -m 2>&1)
+        TIME=$(echo "$TEXT" | tail -n 1)
+        [ -z "$TIMES" ] && TIMES="$TIME" || TIMES="$TIMES,$TIME"
+    done
+    echo "$TIMES" >> data/my_philosophes.csv
+done
+
+echo "2,4,8,16,32,64" &> data/pthrerad_prod_cons.csv
+for i in {1..5}; do
+    TIMES=""
+    for ((thread = 2; thread <= 64; thread *= 2)); do
+        c=$thread
+        p=$thread
+        TEXT=$(/usr/bin/time -f "%e" ./lib/prod_cons -P $p -C $c 2>&1)
+        TIME=$(echo "$TEXT" | tail -n 1)
+        [ -z "$TIMES" ] && TIMES="$TIME" || TIMES="$TIMES,$TIME"
+    done
+    echo "$TIMES" >> data/pthrerad_prod_cons.csv
+done
+
+# my_cons_prod
+echo "2,4,8,16,32,64" &> data/my_prod_cons.csv
+for i in {1..5}; do
+    TIMES=""
+    for ((thread = 2; thread <= 64; thread *= 2)); do
+        c=$thread
+        p=$thread
+        TEXT=$(/usr/bin/time -f "%e" ./lib/prod_cons -P $p -C $c -m 2>&1)
+        TIME=$(echo "$TEXT" | tail -n 1)
+        [ -z "$TIMES" ] && TIMES="$TIME" || TIMES="$TIMES,$TIME"
+    done
+    echo "$TIMES" >> data/my_prod_cons.csv
+done
+
+echo "2,4,8,16,32,64" &> data/pthread_writer_reader.csv
+for i in {1..5}; do
+    TIMES=""
+    for ((thread = 2; thread <= 64; thread *= 2)); do
+        r=$thread
+        w=$thread
+        TEXT=$(/usr/bin/time -f "%e" ./lib/writer_reader -R $r -W $w 2>&1)
+        TIME=$(echo "$TEXT" | tail -n 1)
+        [ -z "$TIMES" ] && TIMES="$TIME" || TIMES="$TIMES,$TIME"
+    done
+    echo "$TIMES" >> data/pthread_writer_reader.csv
+done
+
+# my_writer_reader
+echo "2,4,8,16,32,64" &> data/my_writer_reader.csv
+for i in {1..5}; do
+    TIMES=""
+    for ((thread = 2; thread <= 64; thread *= 2)); do
+        r=$thread
+        w=$thread
+        TEXT=$(/usr/bin/time -f "%e" ./lib/writer_reader -R $r -W $w -m 2>&1)
+        TIME=$(echo "$TEXT" | tail -n 1)
+        [ -z "$TIMES" ] && TIMES="$TIME" || TIMES="$TIMES,$TIME"
+    done
+    echo "$TIMES" >> data/my_writer_reader.csv
 done
 
 
-echo "cons_number ,prod_number ,threads_number,try_number i ,time" &> data/pthrerad_prod_cons.csv
+# echo Philosophes :
+# cat data/pthread_philosophes.csv
 
-for ((thread = 1; thread <= 64; thread *= 2)); do
-    if [ "$thread" != 1 ]; then
-      c=$((thread/2))
-      p=$((thread/2))
-      for i in {1..5}; do
-            /usr/bin/time -f "$c,$p,$thread,$i,%e" ./lib/prod_cons -P $p  -C $c >>data/pthrerad_prod_cons.csv 2>&1 
-      done
-    fi
-done
+# echo Producer Consumer :
+# cat data/pthrerad_prod_cons.csv
 
-echo "reader_number ,writer_number ,threads_number,try_number i ,time" &> data/pthread_writer_reader.csv
-
-for ((thread = 1; thread <= 64; thread *= 2)); do
-    make writer_reader
-    if [ "$thread" != 1 ]; then 
-      r=$((thread/2))
-      w=$((thread/2))
-      for i in {1..5}; do
-            /usr/bin/time -f "$r,$w,$thread,$i,%e" ./lib/writer_reader -R $r -W $w >>data/pthread_writer_reader.csv 2>&1
-      done
-    fi
-    make clean -f ./lib/writer_reader
-done
-
-
-
-
-echo Philosophes :
-cat data/pthread_philosophes.csv
-
-echo Producer Consumer :
-cat data/pthrerad_prod_cons.csv
-
-echo Writer reader :
-cat data/pthread_writer_reader.csv
+# echo Writer reader :
+# cat data/pthread_writer_reader.csv

@@ -20,10 +20,8 @@ clean:
 	rm -f lib/prod_cons
 	rm -f lib/writer_reader
 
-
 script:
 	chmod u+x experiments.sh
 	./experiments.sh
 
-# a .PHONY target forces make to execute the command even if the target already exists
 .PHONY: clean tests

@@ -3,7 +3,7 @@
 #include "../headers/my_semaphore.h"
 
 #include <stdbool.h>
-#include <time.h>
+// #include <time.h>
 #include <pthread.h>
 #include <semaphore.h>
 
@@ -138,7 +138,7 @@ void *reader(void *arg){
 }
 
 int main(int argc, char const *argv[]) {
-    clock_t begin = clock();
+    // clock_t begin = clock();
     int reader_number = 0;
     int writer_number = 0;
 
@@ -216,9 +216,9 @@ int main(int argc, char const *argv[]) {
         printf("READER_CYCLES: %d, WRITER_CYCLES: %d\n", READER_CYCLES, WRITER_CYCLES);
     }
 
-    clock_t end = clock();
-    double time_spent = (double)(end - begin) / CLOCKS_PER_SEC;
-    printf("%f\n", time_spent);
+    // clock_t end = clock();
+    // double time_spent = (double)(end - begin) / CLOCKS_PER_SEC;
+    // printf("%f\n", time_spent);
     
     return (EXIT_SUCCESS);
 }

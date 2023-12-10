@@ -3,7 +3,7 @@
 #include "../headers/my_semaphore.h"
 
 #include <stdbool.h>
-#include <time.h>
+// #include <time.h>
 #include <pthread.h>
 #include <semaphore.h>
 
@@ -102,7 +102,7 @@ void* consumer(void *arg) {
 }
 
 int main(int argc, char const *argv[]) {
-    clock_t begin = clock();
+    // clock_t begin = clock();
 
     int producers_number = 0;
     int consumers_number = 0;
@@ -148,8 +148,9 @@ int main(int argc, char const *argv[]) {
     sem_destroy(&full);
     pthread_mutex_destroy(&mutex);
 
-    clock_t end = clock();
-    double time_spent = (double)(end - begin) / CLOCKS_PER_SEC;
-    printf("%f\n", time_spent);
+    // clock_t end = clock();
+    // double time_spent = (double)(end - begin) / CLOCKS_PER_SEC;
+    // printf("%f\n", time_spent);
+
     return (EXIT_SUCCESS);
 }
