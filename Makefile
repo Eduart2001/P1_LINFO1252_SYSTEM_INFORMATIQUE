@@ -15,10 +15,12 @@ tests:
 
 clean:
 	rm -f data/*.csv
-	rm -f *.o
+	rm -f data/*.pdf
+	rm -f lib/*.o
 	rm -f lib/philosophes
 	rm -f lib/prod_cons
 	rm -f lib/writer_reader
+	rm -f lib/test_my_mutex
 
 script:
 	chmod u+x experiments.sh
