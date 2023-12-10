@@ -1,20 +1,20 @@
 import pandas as pd
-import matplotlib.pyplot as plt
 import numpy as np
+import matplotlib.pyplot as plt
 
-df = pd.read_csv("../data/pthread_philosophes.csv")
+df = pd.read_csv('../data/pthread_philosophes.csv')
 
-threads_data = ["1", "2", "4", "8"]
-mean_values = list()
-variance_values = list()
-for elem in threads_data:
-    mean_values.append(np.mean(df[elem]))
-    variance_values.append(np.var(df[elem]))
+mean_values = np.array([np.mean(df[elem]) for elem in df.columns[0:6]])
+variance_values = np.array([np.var(df[elem]) for elem in df.columns[0:6]])
 
-plt.title("Calcul du temps de compilation du projet\n \"Modest\" en fonction du nombre de threads utilises")
-plt.plot(threads_data, mean_values)
-#plt.plot(threads_data, variance_values)
-#plt.legend(["Means", "Variances"])
-plt.xlabel("Nombre de threads")
-plt.ylabel("Vitesse de compilation (en secondes)")
+plt.figure(figsize=(10, 6))
+plt.plot(df.columns[0:6], mean_values, 'o-', label='Time')
+plt.fill_between(df.columns[0:6], mean_values[0:6] - variance_values[0:6],
+                 mean_values[0:6] + variance_values[0:6], alpha=0.3, label='variance', color='red')
+plt.title('Execution time by thread number - philosophers')
+plt.xlabel('Thread number')
+plt.ylabel('Time (s)')
+plt.legend()
+plt.grid(True)
+plt.savefig('../data/pthread_philosophes.pdf')
 plt.show()
