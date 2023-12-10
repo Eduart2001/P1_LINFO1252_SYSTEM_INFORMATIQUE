@@ -1,9 +1,12 @@
 #include "../headers/error.h"
+#include "../headers/my_mutex.h"
+#include "../headers/my_semaphore.h"
 
 #include <stdbool.h>
+#include <time.h>
 #include <pthread.h>
 #include <semaphore.h>
-#include <time.h>
+
 
 #define WRITER_CYCLES 640
 #define READER_CYCLES 2560
@@ -12,13 +15,21 @@ pthread_mutex_t mutex_readcount; // protects readcount
 pthread_mutex_t mutex_writecount; // protects writecount
 pthread_mutex_t z; // Only one reader waiting
 
+my_mutex my_mutex_readcount;
+my_mutex my_mutex_writecount;
+my_mutex my_z;
+
 sem_t wsem; // exclusive access to the db
 sem_t rsem; // To block the readers
+
+my_semaphore my_wsem;
+my_semaphore my_rsem;
 
 int readcount=0;
 int writecount=0;
 
 int verbose = false;
+int use_my_own = false;
 
 // for testing purpose
 int total_reads = 0;
@@ -27,7 +38,8 @@ int total_writes = 0;
 void  *writer (void *arg){
     if (verbose) printf("writer cycles inside: %d\n", *(int *)arg); // for testing purpose
     for(int i=0; i<*((int*)arg); i++) {
-        if(pthread_mutex_lock(&mutex_writecount)) error("initial writer mutex_lock failed");
+        if (use_my_own) my_mutex_TAS_lock(&my_mutex_writecount);
+        else if(pthread_mutex_lock(&mutex_writecount)) error("initial writer mutex_lock failed");
         
         // for testing purpose
         if(verbose) {
@@ -37,19 +49,35 @@ void  *writer (void *arg){
         
         // critical section - writecount
         writecount++;
-        if(writecount==1) if(sem_wait(&rsem)) error("first writer sem_wait failed"); // First writer arriving
-        if(pthread_mutex_unlock(&mutex_writecount)) error("writer first mutex_unlock failed");
-        if(sem_wait(&wsem)) error("writer sem_wait failed"); // critical section, only one writer at a time
+        if(writecount==1) {
+            if (use_my_own) my_sem_wait(&my_rsem);
+            else if(sem_wait(&rsem)) error("first writer sem_wait failed"); // First writer arriving
+        }
+        if (use_my_own) {
+            my_mutex_unlock(&my_mutex_writecount);
+            my_sem_wait(&my_wsem);
+        } else {
+            if(pthread_mutex_unlock(&mutex_writecount)) error("writer first mutex_unlock failed");
+            if(sem_wait(&wsem)) error("writer sem_wait failed"); // critical section, only one writer at a time
+        }
         
         for (int i=0; i<10000; i++); // hard work
-        if(sem_post(&wsem)) error("writer sem_post failed");
-        if(pthread_mutex_lock(&mutex_writecount)) error("writer second mutex_lock failed");
+        if (use_my_own) {
+            my_sem_post(&my_wsem);
+            my_mutex_TAS_lock(&my_mutex_writecount);
+        } else {
+            if(sem_post(&wsem)) error("writer sem_post failed");
+            if(pthread_mutex_lock(&mutex_writecount)) error("writer second mutex_lock failed");
+        }
+        
         // section critique - writecount
         writecount--;
         if(writecount==0) {
-            if(sem_post(&rsem)) error("writer last sem_post failed"); // departure of the last writer
+            if (use_my_own) my_sem_post(&my_rsem);
+            else if(sem_post(&rsem)) error("writer last sem_post failed"); // departure of the last writer
         }
-        if(pthread_mutex_unlock(&mutex_writecount)) error("writer last mutex_unlock failed");
+        if (use_my_own) my_mutex_unlock(&my_mutex_writecount);
+        else if(pthread_mutex_unlock(&mutex_writecount)) error("writer last mutex_unlock failed");
     }
     pthread_exit(NULL);
 }
@@ -57,10 +85,17 @@ void  *writer (void *arg){
 void *reader(void *arg){
     if(verbose) printf("reader cycles inside: %d\n", *(int *)arg); // for testing purpose
     for(int i=0; i<*((int*)arg); i++) {
-        if(pthread_mutex_lock(&z)) error("initial reader z mutex_lock failed");
-        // mutual exclusion, only one reader waiting on rsem
-        if(sem_wait(&rsem)) error("reader sem_wait failed");
-        if(pthread_mutex_lock(&mutex_readcount)) error("reader first readcount mutex_lock failed");
+        if (use_my_own) {
+            my_mutex_TAS_lock(&my_z);
+            // mutual exclusion, only one reader waiting on my_rsem
+            my_sem_wait(&my_rsem);
+            my_mutex_TAS_lock(&my_mutex_readcount);
+        } else {
+            if(pthread_mutex_lock(&z)) error("initial reader z mutex_lock failed");
+            // mutual exclusion, only one reader waiting on rsem
+            if(sem_wait(&rsem)) error("reader sem_wait failed");
+            if(pthread_mutex_lock(&mutex_readcount)) error("reader first readcount mutex_lock failed");
+        }
         
         // for testing purpose
         if(verbose) {
@@ -71,22 +106,33 @@ void *reader(void *arg){
         // mutual exclusion, readercount
         readcount++;
         if (readcount==1) {
-            if(sem_wait(&wsem)) error("reader sem_wait failed"); // First reader arriving
+            if (use_my_own) my_sem_wait(&my_wsem);
+            else if(sem_wait(&wsem)) error("reader sem_wait failed"); // First reader arriving
         }
 
-        if(pthread_mutex_unlock(&mutex_readcount)) error("reader mutex_unlock failed");
-        if(sem_post(&rsem)) error("reader sem_post faield"); // release next reader/writer
+        if (use_my_own) {
+            my_mutex_unlock(&my_mutex_readcount);
+            my_sem_post(&my_rsem); // release next reader/writer
+            my_mutex_unlock(&my_z);
+        } else {
+            if(pthread_mutex_unlock(&mutex_readcount)) error("reader mutex_unlock failed");
+            if(sem_post(&rsem)) error("reader sem_post faield"); // release next reader/writer
+            if(pthread_mutex_unlock(&z)) error("reader z mutex_unlock failed");
+        }
         
-        if(pthread_mutex_unlock(&z)) error("reader z mutex_unlock failed");
         for (int i=0; i<10000; i++); // hard work
         
-        if(pthread_mutex_lock(&mutex_readcount)) error("reader second readcount mutex_lock failed");
+        if (use_my_own) my_mutex_TAS_lock(&my_mutex_readcount);
+        else if(pthread_mutex_lock(&mutex_readcount)) error("reader second readcount mutex_lock failed");
+        
         // mutual exclusion, readcount
         readcount--;
         if(readcount==0) {
-            if(sem_post(&wsem)) error("reader last sem_post failed"); // departure of the last reader
+            if (use_my_own) my_sem_post(&my_wsem);
+            else if(sem_post(&wsem)) error("reader last sem_post failed"); // departure of the last reader
         }
-        if(pthread_mutex_unlock(&mutex_readcount)) error("reader last mutex_unlock failed");
+        if (use_my_own) my_mutex_unlock(&my_mutex_readcount);
+        else if(pthread_mutex_unlock(&mutex_readcount)) error("reader last mutex_unlock failed");
     }
     pthread_exit(NULL);
 }
@@ -99,21 +145,27 @@ int main(int argc, char const *argv[]) {
     for (int i=0; i<argc-2; i++){
         if (strcmp(argv[i+1], "-R") == 0) reader_number = atoi(argv[i+2]);
         else if (strcmp(argv[i+1], "-W") == 0) writer_number = atoi(argv[i+2]);
+        else if (strcmp(argv[i+1], "-m") == 0) use_my_own = true;
         else if (strcmp(argv[i+1], "-v") == 0) verbose = true;
     }
     if (strcmp(argv[argc-1], "-v") == 0) verbose = true;
+    else if (strcmp(argv[argc-1], "-m") == 0) use_my_own = true;
 
     if (reader_number <= 0 || writer_number <= 0) error("Please provide a valid writer or consumer number of threads");
 
-    if(pthread_mutex_init(&mutex_readcount, NULL)) error("pthread_mutex_init readcount");
-
-    if(pthread_mutex_init(&mutex_writecount, NULL)) error("pthread_mutex_init writecount");
-
-    if(pthread_mutex_init(&z, NULL)) error("pthread_mutex_init only one reader (z)");
-
-    if(sem_init(&wsem, 0 , 1)) error("sem_init_empty wsem"); // empty buffer
-
-    if (sem_init(&rsem, 0 , 1)) error("sem_init_full rsem"); // empty buffer
+    if (use_my_own) {
+        my_mutex_init(&my_mutex_readcount);
+        my_mutex_init(&my_mutex_writecount);
+        my_mutex_init(&my_z);
+        my_sem_init(&my_wsem, 1);
+        my_sem_init(&my_rsem, 1);
+    } else {
+        if(pthread_mutex_init(&mutex_readcount, NULL)) error("pthread_mutex_init readcount");
+        if(pthread_mutex_init(&mutex_writecount, NULL)) error("pthread_mutex_init writecount");
+        if(pthread_mutex_init(&z, NULL)) error("pthread_mutex_init only one reader (z)");
+        if(sem_init(&wsem, 0 , 1)) error("sem_init_empty wsem"); // empty buffer
+        if(sem_init(&rsem, 0 , 1)) error("sem_init_full rsem"); // empty buffer
+    }
 
     pthread_t reader_thread[reader_number];
     pthread_t writer_thread[writer_number];

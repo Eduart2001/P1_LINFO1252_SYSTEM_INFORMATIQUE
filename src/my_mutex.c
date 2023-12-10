@@ -11,7 +11,6 @@ void my_mutex_init(my_mutex *mutex) {
 void my_mutex_destroy(my_mutex *mutex) {
     if (mutex == NULL) error("Please give a pointer to a valid mutex structure");
     free((void *)mutex->lock);
-    free(mutex);
 }
 
 void my_mutex_TAS_lock(my_mutex *mutex) { //test-and-set

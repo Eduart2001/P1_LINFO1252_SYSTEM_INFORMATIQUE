@@ -4,16 +4,9 @@
 #include "./my_mutex.h"
 #include <pthread.h>
 
-typedef struct queue_node {
-    pthread_t thread_id;
-    struct queue_node* next;
-} queue_node;
-
 typedef struct semaphore {
     volatile int val;
     my_mutex *mutex;
-    queue_node* front;
-    queue_node* rear;
 } my_semaphore;
 
 void my_sem_init(my_semaphore *s, unsigned int value);
