@@ -23,7 +23,7 @@ plt.plot(df2.columns[0:6], mean_values_2, 'o-', label='TAS & my_semaphore')
 plt.fill_between(df2.columns[0:6], mean_values_2 - variance_values_2,
                  mean_values_2 + variance_values_2, alpha=0.3, color='blue', label='TAS & my_semaphore variance')
 
-plt.title('Execution time by thread number - producer/consumer')
+plt.title('Execution time by thread number - writer/reader')
 plt.xlabel('Thread number')
 plt.ylabel('Time (s)')
 plt.legend()
