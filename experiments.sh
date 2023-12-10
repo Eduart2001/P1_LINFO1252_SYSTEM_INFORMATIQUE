@@ -25,7 +25,7 @@ for i in {1..5}; do
     echo "$TIMES" >> data/my_philosophes.csv
 done
 
-echo "2,4,8,16,32,64" &> data/pthrerad_prod_cons.csv
+echo "2,4,8,16,32,64" &> data/pthread_prod_cons.csv
 for i in {1..5}; do
     TIMES=""
     for ((thread = 2; thread <= 64; thread *= 2)); do
@@ -35,7 +35,7 @@ for i in {1..5}; do
         TIME=$(echo "$TEXT" | tail -n 1)
         [ -z "$TIMES" ] && TIMES="$TIME" || TIMES="$TIMES,$TIME"
     done
-    echo "$TIMES" >> data/pthrerad_prod_cons.csv
+    echo "$TIMES" >> data/pthread_prod_cons.csv
 done
 
 # my_cons_prod
